@@ -1,19 +1,25 @@
 extern crate bio;
 use std::env;
-use bio::alphabets;
+use bio::alphabets::dna::revcomp;
+use std::string::FromUtf8Error;
+
+fn reverse_complement(string: String) -> Result<String, FromUtf8Error> {
+    String::from_utf8(revcomp(string
+                              .trim()
+                              .replace(" ", "")
+                              .as_bytes()))
+}
 
 
 fn main() {
-    let user_input = match env::args().nth(1) {
-        Some(x) => x,
-        None => { println!("You need to enter a sequence."); std::process::exit(1); }
-    };
-    let rc = alphabets::dna::revcomp(user_input.trim().replace(" ", "").as_bytes());
-    let output = match String::from_utf8(rc) {
-        Ok(x) => x,
-        Err(_) => { println!("Invalid sequence."); std::process::exit(1); }
-    };
+  let rc = env::args()
+           .nth(1)
+           .ok_or("Please specify input".to_owned())
+           .and_then(|user_input| reverse_complement(user_input)
+                                  .map_err(|err| err.to_string()));
 
-    println!("{}", output);
-    std::process::exit(0);
+  match rc {
+    Ok(result) => { println!("{}", result); },
+    Err(err) => { println!("{}", err); }
+  }
 }
