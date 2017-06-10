@@ -1,2 +1,2 @@
-# reverse-complement
-Command line reverse complement
+# seqtools-cli
+Command line sequence tools
