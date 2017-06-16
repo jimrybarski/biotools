@@ -35,6 +35,11 @@ fn build_complement(user_input: String) -> Result<String, FromUtf8Error> {
                                 .collect())
 }
 
+fn abort(error_message: &str) {
+    println!("{}", error_message);
+    std::process::exit(1)
+}
+
 fn main() {
     let user_input: String = env::args()
                              .skip(2)
@@ -47,11 +52,11 @@ fn main() {
             Ok(Command::ReverseComplement) => {
                 build_reverse_complement(user_input)
             }
-            Err(_) => { panic!("Invalid command"); }
+            Err(_) => { return abort("seqtools-cli: Invalid command!") }
         };
         match output {
             Ok(text) => { println!("{}", text); }
-            Err(_) => { panic!("Invalid data"); }
+            Err(_) => { return abort("seqtools-cli: Invalid sequence!") }
         }
     }
 }
