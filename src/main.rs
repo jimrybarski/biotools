@@ -31,7 +31,7 @@ fn build_complement(user_input: String) -> Result<String, FromUtf8Error> {
     String::from_utf8(user_input.trim()
                                 .replace(" ", "")
                                 .bytes()
-                                .map(|text| complement(text))
+                                .map(complement)
                                 .collect())
 }
 
