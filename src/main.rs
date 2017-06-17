@@ -36,7 +36,7 @@ fn build_complement(user_input: &str) -> Result<String, FromUtf8Error> {
 }
 
 fn abort(error_message: &str) {
-    println!("{}", error_message);
+    println!("seqtools-cli error: {}", error_message);
     std::process::exit(1)
 }
 
@@ -46,17 +46,15 @@ fn main() {
                              .collect();
     if let Some(command) = env::args().nth(1) {
         let output = match parse_command(&command) {
-            Ok(Command::Complement) => {
-                build_complement(&user_input)
-            },
-            Ok(Command::ReverseComplement) => {
-                build_reverse_complement(&user_input)
-            }
-            Err(_) => { return abort("seqtools-cli: Invalid command!") }
+            Ok(Command::Complement) => { build_complement(&user_input) },
+            Ok(Command::ReverseComplement) => { build_reverse_complement(&user_input) },
+            Err(_) => { return abort("Invalid command!") }
         };
         match output {
-            Ok(text) => { println!("{}", text); }
-            Err(_) => { return abort("seqtools-cli: Invalid sequence!") }
+            Ok(text) => { println!("{}", text); },
+            Err(_) => { return abort("Invalid sequence!") }
         }
+    } else {
+        abort("Missing command!");
     }
 }
