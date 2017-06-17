@@ -58,3 +58,20 @@ fn main() {
         abort("Missing command!");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_complement() {
+        let complement = build_complement("AAAACGT").unwrap();
+        assert_eq!(complement, String::from("TTTTGCA"));
+    }
+
+    #[test]
+    fn test_build_reverse_complement() {
+        let complement = build_reverse_complement("AAAACGT").unwrap();
+        assert_eq!(complement, "ACGTTTT");
+    }
+}
