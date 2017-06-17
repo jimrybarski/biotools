@@ -1,4 +1,7 @@
+#![feature(test)]
+
 extern crate bio;
+extern crate test;
 use std::env;
 use bio::alphabets::dna::{revcomp,complement};
 use std::string::FromUtf8Error;
@@ -62,6 +65,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test::Bencher;
 
     #[test]
     fn test_build_complement() {
@@ -73,5 +77,21 @@ mod tests {
     fn test_build_reverse_complement() {
         let complement = build_reverse_complement("AAAACGT").unwrap();
         assert_eq!(complement, "ACGTTTT");
+    }
+
+    #[bench]
+    #[allow(unused)]
+    fn bench_complement(b: &mut Bencher) {
+        b.iter(|| {
+            let complement = build_complement("AAAACGTGGGGGGATCGACGACACACTGGATAATATATACGACTAGCCTACGATCGATCGT").unwrap();
+        });
+    }
+
+    #[bench]
+    #[allow(unused)]
+    fn bench_reverse_complement(b: &mut Bencher) {
+        b.iter(|| {
+            let complement = build_reverse_complement("AAAACGTGGGGGGATCGACGACACACTGGATAATATATACGACTAGCCTACGATCGATCGT").unwrap();
+        });
     }
 }
