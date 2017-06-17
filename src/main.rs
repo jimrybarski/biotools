@@ -20,14 +20,14 @@ fn parse_command(potential_command: &str) -> Result<Command, Error>{
     }
 }
 
-fn build_reverse_complement(user_input: String) -> Result<String, FromUtf8Error> {
+fn build_reverse_complement(user_input: &str) -> Result<String, FromUtf8Error> {
     String::from_utf8(revcomp(user_input
                               .trim()
                               .replace(" ", "")
                               .as_bytes()))
 }
 
-fn build_complement(user_input: String) -> Result<String, FromUtf8Error> {
+fn build_complement(user_input: &str) -> Result<String, FromUtf8Error> {
     String::from_utf8(user_input.trim()
                                 .replace(" ", "")
                                 .bytes()
@@ -47,10 +47,10 @@ fn main() {
     if let Some(command) = env::args().nth(1) {
         let output = match parse_command(&command) {
             Ok(Command::Complement) => {
-                build_complement(user_input)
+                build_complement(&user_input)
             },
             Ok(Command::ReverseComplement) => {
-                build_reverse_complement(user_input)
+                build_reverse_complement(&user_input)
             }
             Err(_) => { return abort("seqtools-cli: Invalid command!") }
         };
