@@ -1,5 +1,3 @@
-#![feature(test)]
-
 extern crate bio;
 use std::env;
 use bio::alphabets::dna::{revcomp,complement};
