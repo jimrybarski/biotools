@@ -1,7 +1,6 @@
 #![feature(test)]
 
 extern crate bio;
-extern crate test;
 use std::env;
 use bio::alphabets::dna::{revcomp,complement};
 use std::string::FromUtf8Error;
@@ -91,7 +90,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test::Bencher;
 
     #[test]
     fn test_build_complement() {
@@ -127,22 +125,5 @@ mod tests {
     fn test_gc_content4() {
         let ratio = gc_content("GATTACA").unwrap();
         assert_eq!(ratio, "0.2857142857142857");
-    }
-    // The benchmarks are designed to take around 1 microsecond to run in V1.20
-    //
-    #[bench]
-    #[allow(unused)]
-    fn bench_complement(b: &mut Bencher) {
-        b.iter(|| {
-            let complement = build_complement("AAAACGTGGGGGGATCGACGACACA").unwrap();
-        });
-    }
-
-    #[bench]
-    #[allow(unused)]
-    fn bench_reverse_complement(b: &mut Bencher) {
-        b.iter(|| {
-            let complement = build_reverse_complement("AAAACGTGGGGGGATCGACGACACA").unwrap();
-        });
     }
 }
