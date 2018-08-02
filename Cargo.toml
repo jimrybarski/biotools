@@ -4,4 +4,4 @@ version = "0.9.0"
 authors = ["Jim Rybarski <jim@rybarski.com>"]
 
 [dependencies]
-bio = "0.10.0"
+bio = "0.22.0"
