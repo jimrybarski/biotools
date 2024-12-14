@@ -1,57 +1,50 @@
 extern crate bio;
+use bio::alphabets::dna::revcomp;
 use std::env;
-use bio::alphabets::dna::{revcomp,complement};
 use std::string::FromUtf8Error;
 
 enum Command {
-    Complement,
     ReverseComplement,
     StringLength,
-    GCContent
+    GCContent,
 }
 
 enum Error {
-    InvalidCommand
+    InvalidCommand,
 }
 
-fn parse_command(potential_command: &str) -> Result<Command, Error>{
+fn parse_command(potential_command: &str) -> Result<Command, Error> {
     match potential_command {
-        "rc" => Ok(Command::ReverseComplement),
-        "c" => Ok(Command::Complement),
-        "len" => Ok(Command::StringLength),
-        "gc" => Ok(Command::GCContent),
-        _ => Err(Error::InvalidCommand)
+        "reverse-complement" => Ok(Command::ReverseComplement),
+        "length" => Ok(Command::StringLength),
+        "gc-content" => Ok(Command::GCContent),
+        _ => Err(Error::InvalidCommand),
     }
 }
 
 fn build_reverse_complement(user_input: &str) -> Result<String, FromUtf8Error> {
-    String::from_utf8(revcomp(user_input
-                              .trim()
-                              .replace(" ", "")
-                              .as_bytes()))
-}
-
-fn build_complement(user_input: &str) -> Result<String, FromUtf8Error> {
-    String::from_utf8(user_input.trim()
-                                .replace(" ", "")
-                                .bytes()
-                                .map(complement)
-                                .collect())
+    String::from_utf8(revcomp(user_input.trim().as_bytes()))
 }
 
 fn get_string_length(user_input: &str) -> Result<String, FromUtf8Error> {
-    Ok(user_input.len().to_string())
+    Ok(user_input
+        .chars()
+        .filter(|ch| *ch != '-')
+        .filter(|ch| *ch != ' ')
+        .collect::<Vec<_>>().len().to_string())
 }
 
 fn gc_content(user_input: &str) -> Result<String, FromUtf8Error> {
     let mut gc: f64 = 0.0;
     let mut at: f64 = 0.0;
-    for ch in user_input
-              .to_uppercase()
-              .chars() {
+    for ch in user_input.to_uppercase().chars() {
         match ch {
-            'A' | 'T' => { at += 1.0; },
-            'C' | 'G' => { gc += 1.0; },
+            'A' | 'T' => {
+                at += 1.0;
+            }
+            'C' | 'G' => {
+                gc += 1.0;
+            }
             _ => {}
         }
     }
@@ -60,25 +53,24 @@ fn gc_content(user_input: &str) -> Result<String, FromUtf8Error> {
 }
 
 fn abort(error_message: &str) {
-    println!("seqtools-cli error: {}", error_message);
+    println!("biotools error: {}", error_message);
     std::process::exit(1)
 }
 
 fn main() {
-    let user_input: String = env::args()
-                             .skip(2)
-                             .collect();
+    let user_input: String = env::args().skip(2).collect();
     if let Some(command) = env::args().nth(1) {
         let output = match parse_command(&command) {
-            Ok(Command::Complement) => { build_complement(&user_input) },
-            Ok(Command::ReverseComplement) => { build_reverse_complement(&user_input) },
-            Ok(Command::StringLength) => { get_string_length(&user_input) },
-            Ok(Command::GCContent) => { gc_content(&user_input) },
-            Err(_) => { return abort("Invalid command!") }
+            Ok(Command::ReverseComplement) => build_reverse_complement(&user_input),
+            Ok(Command::StringLength) => get_string_length(&user_input),
+            Ok(Command::GCContent) => gc_content(&user_input),
+            Err(_) => return abort("Invalid command!"),
         };
         match output {
-            Ok(text) => { println!("{}", text); },
-            Err(_) => { return abort("Invalid sequence!") }
+            Ok(text) => {
+                println!("{}", text);
+            }
+            Err(_) => abort("Invalid sequence!"),
         }
     } else {
         abort("Missing command!");
@@ -88,12 +80,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_build_complement() {
-        let complement = build_complement("AAAACGT").unwrap();
-        assert_eq!(complement, String::from("TTTTGCA"));
-    }
 
     #[test]
     fn test_build_reverse_complement() {
@@ -124,4 +110,11 @@ mod tests {
         let ratio = gc_content("GATTACA").unwrap();
         assert_eq!(ratio, "0.2857142857142857");
     }
+
+    #[test]
+    fn test_gc_content_with_gaps() {
+        let ratio = gc_content("GATT-ACA").unwrap();
+        assert_eq!(ratio, "0.2857142857142857");
+    }
 }
+
