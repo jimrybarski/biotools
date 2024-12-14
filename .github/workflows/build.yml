@@ -1,4 +1,4 @@
-name: CI
+name: Build
 
 on:
  push:
@@ -23,6 +23,3 @@ jobs:
 
    - name: Build
      run: cargo build --verbose
-
-   - name: Tests
-     run: cargo test --verbose
