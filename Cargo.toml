@@ -1,8 +1,18 @@
 [package]
 name = "biotools"
-version = "0.9.0"
+version = "0.9.1"
 authors = ["Jim Rybarski <jim@rybarski.com>"]
 edition = "2021"
+license = "MIT"
+description = "Simple bioinformatics CLI tools for sequence analysis and manipulation"
+repository = "https://github.com/jimrybarski/biotools"
+homepage = "https://github.com/jimrybarski/biotools"
+readme = "README.md"
+keywords = ["bioinformatics"]
+categories = ["command-line-utilities", "science::bioinformatics"]
 
 [dependencies]
-bio = "0.22.0"
+bio = "2.0.3"
+
+[lints.rust]
+unsafe_code = "forbid"
