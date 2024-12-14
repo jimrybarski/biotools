@@ -1,6 +1,6 @@
-# Seqtools
+# Biotools
 
-[![Build Status](https://travis-ci.org/jimrybarski/biotools.svg?branch=main)](https://travis-ci.org/jimrybarski/biotools)
+![CI](https://github.com/jimrybarski/biotools/actions/workflows/badges.yml/badge.svg)
 
 Simple command line tools for basic bioinformatics tasks:
   * Reverse complement
