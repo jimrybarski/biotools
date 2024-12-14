@@ -1,9 +1,9 @@
 # Seqtools
 
-[![Build Status](https://travis-ci.org/jimrybarski/seqtools-cli.svg?branch=master)](https://travis-ci.org/jimrybarski/seqtools-cli)
+[![Build Status](https://travis-ci.org/jimrybarski/biotools.svg?branch=main)](https://travis-ci.org/jimrybarski/biotools)
 
 Simple command line tools for basic bioinformatics tasks:
   * Reverse complement
-  * Complement
   * GC content
-  * Length of string
+  * Length of sequence
+  * Pairwise alignment
