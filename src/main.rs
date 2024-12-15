@@ -78,10 +78,21 @@ fn gc_content(user_input: Vec<String>) -> Result<String> {
 }
 
 fn format_alignment(alignment: Alignment, a: String, b: String) -> String {
-    let mut alignment_string = String::new();
-    let mut a_pretty = String::new();
+    let a_raw_start = alignment.xstart.to_string();
+    let b_raw_start = alignment.ystart.to_string();
+    let a_raw_end = alignment.xend.to_string();
+    let b_raw_end = alignment.yend.to_string();
+
+    let start_length = std::cmp::max(a_raw_start.len(), b_raw_start.len());
+    let end_length = std::cmp::max(a_raw_end.len(), b_raw_end.len());
+
+    let mut a_pretty = format!("{:>width$} ", a_raw_start, width=start_length);
+    let mut alignment_string = format!("{:>width$} ", "".to_string(), width=start_length);
+    let mut b_pretty = format!("{:>width$} ", b_raw_start, width=start_length);
+    let a_end = format!("{:>width$}", a_raw_end, width=end_length);
+    let b_end = format!("{:>width$}", b_raw_end, width=end_length);
+
     let mut a_index = alignment.xstart;
-    let mut b_pretty = String::new();
     let mut b_index = alignment.ystart;
 
     for op in alignment.operations {
@@ -142,7 +153,7 @@ fn format_alignment(alignment: Alignment, a: String, b: String) -> String {
             }
         }
     }
-    format!("{a_pretty}\n{alignment_string}\n{b_pretty}")
+    format!("{a_pretty} {a_end}\n{alignment_string}\n{b_pretty} {b_end}")
 }
 
 fn pairwise(alignment_command: AlignmentCommand, user_input: Vec<String>) -> Result<String> {
