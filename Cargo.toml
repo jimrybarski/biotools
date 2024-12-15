@@ -12,6 +12,7 @@ keywords = ["bioinformatics"]
 categories = ["command-line-utilities", "science::bioinformatics"]
 
 [dependencies]
+anyhow = "1.0.94"
 bio = "2.0.3"
 
 [lints.rust]
