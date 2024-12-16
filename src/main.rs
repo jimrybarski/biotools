@@ -1,38 +1,75 @@
-extern crate bio;
 use anyhow::{bail, Context, Result};
 use bio::alignment::pairwise::Aligner;
 use bio::alignment::{Alignment, AlignmentOperation};
 use bio::alphabets::dna::revcomp;
-use std::env;
+use clap::{Parser, Subcommand};
 
-const GAP_OPEN_SCORE: i32 = -2;
-const GAP_EXTEND_SCORE: i32 = -1;
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    #[command(about="Converts a nucleic acid sequence to its reverse complement.")]
+    ReverseComplement {
+        #[arg(help = "RNA/DNA sequence")]
+        seqs: Vec<String>,
+    },
+    #[command(about="Computes the length of a sequence.")]
+    Length {
+        #[arg(help = "DNA/RNA/protein sequence")]
+        seq: String,
+    },
+    #[command(about="Computes the GC content of a nucleic acid sequence.")]
+    GCContent {
+        #[arg(help = "RNA/DNA sequence")]
+        seqs: Vec<String>,
+    },
+    #[command(about="Performs a local pairwise alignment of two sequences.")]
+    PairwiseLocal {
+        #[arg(help = "DNA/RNA sequence")]
+        seqs: Vec<String>,
+        #[arg(long, help = "Gap open penalty", default_value_t = 2)]
+        gap_open: i32,
+        #[arg(long, help = "Gap extend penalty", default_value_t = 1)]
+        gap_extend: i32,
+        #[arg(long, help = "Hide start/end coordinates of aligned segments")]
+        hide_coords: bool,
+    },
+    #[command(about="Performs a semiglobal pairwise alignment of two sequences.")]
+    PairwiseSemiglobal {
+        #[arg(help = "DNA/RNA sequence")]
+        seqs: Vec<String>,
+        #[arg(long, help = "Gap open penalty", default_value_t = 2)]
+        gap_open: i32,
+        #[arg(long, help = "Gap extend penalty", default_value_t = 1)]
+        gap_extend: i32,
+        #[arg(long, help = "Hide start/end coordinates of aligned segments")]
+        hide_coords: bool,
+    },
+    #[command(about="Performs a global pairwise alignment of two sequences.")]
+    PairwiseGlobal {
+        #[arg(help = "DNA/RNA sequence")]
+        seqs: Vec<String>,
+        #[arg(long, help = "Gap open penalty", default_value_t = 2)]
+        gap_open: i32,
+        #[arg(long, help = "Gap extend penalty", default_value_t = 1)]
+        gap_extend: i32,
+        #[arg(long, help = "Hide start/end coordinates of aligned segments")]
+        hide_coords: bool,
+    },
+}
+
+extern crate bio;
 
 enum AlignmentCommand {
     Local,
     Global,
     Semiglobal,
-}
-
-enum Command {
-    ReverseComplement,
-    StringLength,
-    GCContent,
-    PairwiseLocal,
-    PairwiseSemiglobal,
-    PairwiseGlobal,
-}
-
-fn parse_command(potential_command: &str) -> Result<Command> {
-    match potential_command {
-        "reverse-complement" => Ok(Command::ReverseComplement),
-        "length" => Ok(Command::StringLength),
-        "gc-content" => Ok(Command::GCContent),
-        "pairwise-local" => Ok(Command::PairwiseLocal),
-        "pairwise-semiglobal" => Ok(Command::PairwiseSemiglobal),
-        "pairwise-global" => Ok(Command::PairwiseGlobal),
-        _ => bail!("Invalid command"),
-    }
 }
 
 fn build_reverse_complement(user_input: Vec<String>) -> Result<String> {
@@ -47,8 +84,8 @@ fn build_reverse_complement(user_input: Vec<String>) -> Result<String> {
     Ok(reversed_complements.join(" "))
 }
 
-fn get_string_length(user_input: Vec<String>) -> Result<String> {
-    Ok(user_input[0]
+fn get_string_length(seq: String) -> Result<String> {
+    Ok(seq
         .chars()
         .filter(|ch| *ch != '-')
         .filter(|ch| *ch != ' ')
@@ -77,20 +114,39 @@ fn gc_content(user_input: Vec<String>) -> Result<String> {
     Ok(format!("{:.16}", ratio))
 }
 
-fn format_alignment(alignment: Alignment, a: String, b: String) -> String {
-    let a_raw_start = alignment.xstart.to_string();
-    let b_raw_start = alignment.ystart.to_string();
-    let a_raw_end = alignment.xend.to_string();
-    let b_raw_end = alignment.yend.to_string();
+fn format_alignment(alignment: Alignment, a: String, b: String, hide_coords: bool) -> String {
+    let (a_raw_start, b_raw_start) = if hide_coords {
+        ("".to_string(), "".to_string())
+    } else {
+        (alignment.xstart.to_string(), alignment.ystart.to_string())
+    };
+
+    let (a_raw_end, b_raw_end) = if hide_coords {
+        ("".to_string(), "".to_string())
+    } else {
+        (alignment.xend.to_string(), alignment.yend.to_string())
+    };
 
     let start_length = std::cmp::max(a_raw_start.len(), b_raw_start.len());
     let end_length = std::cmp::max(a_raw_end.len(), b_raw_end.len());
 
-    let mut a_pretty = format!("{:>width$} ", a_raw_start, width=start_length);
-    let mut alignment_string = format!("{:>width$} ", "".to_string(), width=start_length);
-    let mut b_pretty = format!("{:>width$} ", b_raw_start, width=start_length);
-    let a_end = format!("{:>width$}", a_raw_end, width=end_length);
-    let b_end = format!("{:>width$}", b_raw_end, width=end_length);
+    let (mut a_pretty, mut alignment_string, mut b_pretty, a_end, b_end) = if hide_coords {
+        (
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+        )
+    } else {
+        (
+            format!("{:>width$} ", a_raw_start, width = start_length),
+            format!("{:>width$} ", "".to_string(), width = start_length),
+            format!("{:>width$} ", b_raw_start, width = start_length),
+            format!("{:>width$}", a_raw_end, width = end_length),
+            format!("{:>width$}", b_raw_end, width = end_length),
+        )
+    };
 
     let mut a_index = alignment.xstart;
     let mut b_index = alignment.ystart;
@@ -101,18 +157,14 @@ fn format_alignment(alignment: Alignment, a: String, b: String) -> String {
                 let c = &a[a_index..a_index + 1];
                 a_pretty.push_str(c);
                 a_index += 1;
-
                 alignment_string.push('|');
-
                 let d = &b[b_index..b_index + 1];
                 b_pretty.push_str(d);
                 b_index += 1;
             }
             AlignmentOperation::Del => {
                 a_pretty.push('-');
-
                 alignment_string.push(' ');
-
                 let d = &b[b_index..b_index + 1];
                 b_pretty.push_str(d);
                 b_index += 1;
@@ -121,18 +173,14 @@ fn format_alignment(alignment: Alignment, a: String, b: String) -> String {
                 let c = &a[a_index..a_index + 1];
                 a_pretty.push_str(c);
                 a_index += 1;
-
                 alignment_string.push(' ');
-
                 b_pretty.push('-');
             }
             AlignmentOperation::Subst => {
                 let c = &a[a_index..a_index + 1];
                 a_pretty.push_str(c);
                 a_index += 1;
-
                 alignment_string.push('.');
-
                 let d = &b[b_index..b_index + 1];
                 b_pretty.push_str(d);
                 b_index += 1;
@@ -156,17 +204,27 @@ fn format_alignment(alignment: Alignment, a: String, b: String) -> String {
     format!("{a_pretty} {a_end}\n{alignment_string}\n{b_pretty} {b_end}")
 }
 
-fn pairwise(alignment_command: AlignmentCommand, user_input: Vec<String>) -> Result<String> {
-    if user_input.len() != 2 {
+fn pairwise(
+    alignment_command: AlignmentCommand,
+    seqs: Vec<String>,
+    gap_open_score: i32,
+    gap_extend_score: i32,
+    hide_coords: bool,
+) -> Result<String> {
+    if seqs.len() != 2 {
         bail!("Pairwise comparison needs exactly two sequences");
     }
-    let a = user_input[0].clone();
-    let b = user_input[1].clone();
+    let gap_open_score = -gap_open_score;
+    let gap_extend_score = -gap_extend_score;
+
+    let a = seqs[0].clone();
+    let b = seqs[1].clone();
     let a_bytes = a.as_bytes();
     let b_bytes = b.as_bytes();
     let score = |a: u8, b: u8| if a == b { 1i32 } else { -1i32 };
-    
-    let mut aligner = Aligner::with_capacity(a.len(), b.len(), GAP_OPEN_SCORE, GAP_EXTEND_SCORE, &score);
+
+    let mut aligner =
+        Aligner::with_capacity(a.len(), b.len(), gap_open_score, gap_extend_score, &score);
 
     let alignment = match alignment_command {
         AlignmentCommand::Local => aligner.local(a_bytes, b_bytes),
@@ -174,7 +232,7 @@ fn pairwise(alignment_command: AlignmentCommand, user_input: Vec<String>) -> Res
         AlignmentCommand::Global => aligner.global(a_bytes, b_bytes),
     };
 
-    let pretty_alignment = format_alignment(alignment, a, b);
+    let pretty_alignment = format_alignment(alignment, a, b, hide_coords);
     Ok(pretty_alignment)
 }
 
@@ -184,25 +242,55 @@ fn abort(error_message: &str) -> ! {
 }
 
 fn main() -> Result<()> {
-    let user_input: Vec<String> = env::args().skip(2).collect();
-    if let Some(command) = env::args().nth(1) {
-        let output = match parse_command(&command) {
-            Ok(Command::ReverseComplement) => build_reverse_complement(user_input),
-            Ok(Command::StringLength) => get_string_length(user_input),
-            Ok(Command::GCContent) => gc_content(user_input),
-            Ok(Command::PairwiseLocal) => pairwise(AlignmentCommand::Local, user_input),
-            Ok(Command::PairwiseSemiglobal) => pairwise(AlignmentCommand::Semiglobal, user_input),
-            Ok(Command::PairwiseGlobal) => pairwise(AlignmentCommand::Global, user_input),
-            Err(e) => Err(e),
-        };
-        match output {
-            Ok(text) => {
-                println!("{}", text);
-                Ok(())
-            }
-            Err(e) => abort(&format!("Error: {:?}", e)),
+    let args = Args::parse();
+
+    let output = match args.command {
+        Commands::ReverseComplement { seqs } => build_reverse_complement(seqs),
+        Commands::Length { seq } => get_string_length(seq),
+        Commands::GCContent { seqs } => gc_content(seqs),
+        Commands::PairwiseLocal {
+            seqs,
+            gap_open,
+            gap_extend,
+            hide_coords,
+        } => pairwise(
+            AlignmentCommand::Local,
+            seqs,
+            gap_open,
+            gap_extend,
+            hide_coords,
+        ),
+        Commands::PairwiseSemiglobal {
+            seqs,
+            gap_open,
+            gap_extend,
+            hide_coords,
+        } => pairwise(
+            AlignmentCommand::Semiglobal,
+            seqs,
+            gap_open,
+            gap_extend,
+            hide_coords,
+        ),
+        Commands::PairwiseGlobal {
+            seqs,
+            gap_open,
+            gap_extend,
+            hide_coords,
+        } => pairwise(
+            AlignmentCommand::Global,
+            seqs,
+            gap_open,
+            gap_extend,
+            hide_coords,
+        ),
+    };
+
+    match output {
+        Ok(text) => {
+            println!("{}", text);
+            Ok(())
         }
-    } else {
-        abort("Missing command!");
+        Err(e) => abort(&format!("Error: {:?}", e)),
     }
 }
