@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use bio::alignment::pairwise::Aligner;
 use bio::alignment::{Alignment, AlignmentOperation};
 use bio::alphabets::dna::revcomp;
+use bio::seq_analysis::gc::gc_content as compute_gc_content;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -13,22 +14,22 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    #[command(about="Converts a nucleic acid sequence to its reverse complement.")]
+    #[command(about = "Converts a nucleic acid sequence to its reverse complement.")]
     ReverseComplement {
         #[arg(help = "RNA/DNA sequence")]
         seqs: Vec<String>,
     },
-    #[command(about="Computes the length of a sequence.")]
+    #[command(about = "Computes the length of a sequence.")]
     Length {
         #[arg(help = "DNA/RNA/protein sequence")]
         seq: String,
     },
-    #[command(about="Computes the GC content of a nucleic acid sequence.")]
+    #[command(about = "Computes the GC content of a nucleic acid sequence.")]
     GCContent {
         #[arg(help = "RNA/DNA sequence")]
-        seqs: Vec<String>,
+        seqs: String,
     },
-    #[command(about="Performs a local pairwise alignment of two sequences.")]
+    #[command(about = "Performs a local pairwise alignment of two sequences.")]
     PairwiseLocal {
         #[arg(help = "DNA/RNA sequence")]
         seqs: Vec<String>,
@@ -39,7 +40,7 @@ enum Commands {
         #[arg(long, help = "Hide start/end coordinates of aligned segments")]
         hide_coords: bool,
     },
-    #[command(about="Performs a semiglobal pairwise alignment of two sequences.")]
+    #[command(about = "Performs a semiglobal pairwise alignment of two sequences.")]
     PairwiseSemiglobal {
         #[arg(help = "DNA/RNA sequence")]
         seqs: Vec<String>,
@@ -50,7 +51,7 @@ enum Commands {
         #[arg(long, help = "Hide start/end coordinates of aligned segments")]
         hide_coords: bool,
     },
-    #[command(about="Performs a global pairwise alignment of two sequences.")]
+    #[command(about = "Performs a global pairwise alignment of two sequences.")]
     PairwiseGlobal {
         #[arg(help = "DNA/RNA sequence")]
         seqs: Vec<String>,
@@ -93,24 +94,9 @@ fn get_string_length(seq: String) -> Result<String> {
         .to_string())
 }
 
-fn gc_content(user_input: Vec<String>) -> Result<String> {
-    let mut gc: f64 = 0.0;
-    let mut at: f64 = 0.0;
-    for chunk in user_input {
-        for ch in chunk.to_uppercase().chars() {
-            match ch {
-                'A' | 'T' => {
-                    at += 1.0;
-                }
-                'C' | 'G' => {
-                    gc += 1.0;
-                }
-                _ => {}
-            }
-        }
-    }
-    let ratio = gc / (at + gc);
-    Ok(format!("{:.16}", ratio))
+fn gc_content(seq: String) -> Result<String> {
+    let gc = compute_gc_content(seq.as_bytes());
+    Ok(format!("{:.16}", gc))
 }
 
 fn format_alignment(alignment: Alignment, a: String, b: String, hide_coords: bool) -> String {
