@@ -39,6 +39,11 @@ enum Commands {
         gap_extend: i32,
         #[arg(long, help = "Hide start/end coordinates of aligned segments")]
         hide_coords: bool,
+        #[arg(
+            long,
+            help = "Aligns the first sequence and its reverse complement with the second sequence and returns the superior alignment."
+        )]
+        try_rc: bool,
     },
     #[command(about = "Performs a semiglobal pairwise alignment of two sequences.")]
     PairwiseSemiglobal {
@@ -50,6 +55,11 @@ enum Commands {
         gap_extend: i32,
         #[arg(long, help = "Hide start/end coordinates of aligned segments")]
         hide_coords: bool,
+        #[arg(
+            long,
+            help = "Aligns the first sequence and its reverse complement with the second sequence and returns the superior alignment."
+        )]
+        try_rc: bool,
     },
     #[command(about = "Performs a global pairwise alignment of two sequences.")]
     PairwiseGlobal {
@@ -61,6 +71,11 @@ enum Commands {
         gap_extend: i32,
         #[arg(long, help = "Hide start/end coordinates of aligned segments")]
         hide_coords: bool,
+        #[arg(
+            long,
+            help = "Aligns the first sequence and its reverse complement with the second sequence and returns the superior alignment."
+        )]
+        try_rc: bool,
     },
 }
 
@@ -99,7 +114,7 @@ fn gc_content(seq: String) -> Result<String> {
     Ok(format!("{:.16}", gc))
 }
 
-fn format_alignment(alignment: Alignment, a: String, b: String, hide_coords: bool) -> String {
+fn format_alignment(alignment: Alignment, a: String, b: String, hide_coords: bool, comment: String) -> String {
     let (a_raw_start, b_raw_start) = if hide_coords {
         ("".to_string(), "".to_string())
     } else {
@@ -186,7 +201,20 @@ fn format_alignment(alignment: Alignment, a: String, b: String, hide_coords: boo
             }
         }
     }
-    format!("{a_pretty} {a_end}\n{alignment_string}\n{b_pretty} {b_end}")
+    format!("{a_pretty} {a_end}{comment}\n{alignment_string}\n{b_pretty} {b_end}")
+}
+
+fn run_alignment(
+    alignment_command: &AlignmentCommand,
+    aligner: &mut Aligner<impl Fn(u8, u8) -> i32>,
+    a_bytes: &[u8],
+    b_bytes: &[u8],
+) -> Alignment {
+    match alignment_command {
+        AlignmentCommand::Local => aligner.local(a_bytes, b_bytes),
+        AlignmentCommand::Semiglobal => aligner.semiglobal(a_bytes, b_bytes),
+        AlignmentCommand::Global => aligner.global(a_bytes, b_bytes),
+    }
 }
 
 fn pairwise(
@@ -195,6 +223,7 @@ fn pairwise(
     gap_open_score: i32,
     gap_extend_score: i32,
     hide_coords: bool,
+    try_rc: bool,
 ) -> Result<String> {
     if seqs.len() != 2 {
         bail!("Pairwise comparison needs exactly two sequences");
@@ -206,18 +235,25 @@ fn pairwise(
     let b = seqs[1].clone();
     let a_bytes = a.as_bytes();
     let b_bytes = b.as_bytes();
-    let score = |a: u8, b: u8| if a == b { 1i32 } else { -1i32 };
+    let score = |a: u8, b: u8| if a.to_ascii_uppercase() == b.to_ascii_uppercase() { 1i32 } else { -1i32 };
 
     let mut aligner =
         Aligner::with_capacity(a.len(), b.len(), gap_open_score, gap_extend_score, &score);
-
-    let alignment = match alignment_command {
-        AlignmentCommand::Local => aligner.local(a_bytes, b_bytes),
-        AlignmentCommand::Semiglobal => aligner.semiglobal(a_bytes, b_bytes),
-        AlignmentCommand::Global => aligner.global(a_bytes, b_bytes),
+    let alignment = run_alignment(&alignment_command, &mut aligner, a_bytes, b_bytes);
+    let (alignment, a, comment) = if try_rc {
+        let a_rc_bytes = revcomp(a.as_bytes());
+        let a_rc = String::from_utf8(a_rc_bytes.clone())?;
+        let alignment_rc = run_alignment(&alignment_command, &mut aligner, &a_rc_bytes, b_bytes);
+        if alignment.score >= alignment_rc.score {
+            (alignment, a, "".to_string())
+        } else {
+            (alignment_rc, a_rc, " RC".to_string())
+        }
+    } else {
+        (alignment, a, "".to_string())
     };
 
-    let pretty_alignment = format_alignment(alignment, a, b, hide_coords);
+    let pretty_alignment = format_alignment(alignment, a, b, hide_coords, comment);
     Ok(pretty_alignment)
 }
 
@@ -238,36 +274,42 @@ fn main() -> Result<()> {
             gap_open,
             gap_extend,
             hide_coords,
+            try_rc,
         } => pairwise(
             AlignmentCommand::Local,
             seqs,
             gap_open,
             gap_extend,
             hide_coords,
+            try_rc,
         ),
         Commands::PairwiseSemiglobal {
             seqs,
             gap_open,
             gap_extend,
             hide_coords,
+            try_rc,
         } => pairwise(
             AlignmentCommand::Semiglobal,
             seqs,
             gap_open,
             gap_extend,
             hide_coords,
+            try_rc,
         ),
         Commands::PairwiseGlobal {
             seqs,
             gap_open,
             gap_extend,
             hide_coords,
+            try_rc,
         } => pairwise(
             AlignmentCommand::Global,
             seqs,
             gap_open,
             gap_extend,
             hide_coords,
+            try_rc,
         ),
     };
 
