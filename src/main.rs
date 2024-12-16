@@ -4,9 +4,8 @@ use bio::alignment::{Alignment, AlignmentOperation};
 use bio::alphabets::dna::revcomp;
 use clap::{Parser, Subcommand};
 
-/// Simple program to greet a person
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about="Simple bioinformatics tools for sequence analysis and manipulation", long_about = None)]
 struct Args {
     #[command(subcommand)]
     command: Commands,
