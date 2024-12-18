@@ -1,5 +1,7 @@
 # Biotools
 
+These are just trivial bioinformatics tools that are convenient to have available on the command line.
+
 ![Build](https://github.com/jimrybarski/biotools/actions/workflows/build.yml/badge.svg) ![Tests](https://github.com/jimrybarski/biotools/actions/workflows/tests.yml/badge.svg)
 
 Installation: `cargo install biotools`  
@@ -60,7 +62,7 @@ $ biotools gc-content GGG GAA-TA
 
 ### Pairwise alignment
 
-There are three pairwise alignment commands, for local, semiglobal and global alignments.
+There are three pairwise alignment commands, for local, semiglobal and global alignments. We use the aligner from rust-bio, which ultimately uses an implementation of Smith-Waterman.
 
 ```
 $ biotools pairwise-local ACAGT ACGT
