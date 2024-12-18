@@ -22,12 +22,12 @@ enum Commands {
     #[command(about = "Computes the length of a sequence.")]
     Length {
         #[arg(help = "DNA/RNA/protein sequence")]
-        seq: String,
+        seq: Vec<String>,
     },
     #[command(about = "Computes the GC content of a nucleic acid sequence.")]
     GCContent {
         #[arg(help = "RNA/DNA sequence")]
-        seqs: String,
+        seqs: Vec<String>,
     },
     #[command(about = "Performs a local pairwise alignment of two sequences.")]
     PairwiseLocal {
@@ -99,8 +99,8 @@ fn build_reverse_complement(user_input: Vec<String>) -> Result<String> {
     Ok(reversed_complements.join(" "))
 }
 
-fn get_string_length(seq: String) -> Result<String> {
-    Ok(seq
+fn get_string_length(seqs: Vec<String>) -> Result<String> {
+    Ok(seqs.join("")
         .chars()
         .filter(|ch| *ch != '-')
         .filter(|ch| *ch != ' ')
@@ -109,7 +109,8 @@ fn get_string_length(seq: String) -> Result<String> {
         .to_string())
 }
 
-fn gc_content(seq: String) -> Result<String> {
+fn gc_content(seqs: Vec<String>) -> Result<String> {
+    let seq = seqs.join("").replace(" ", "").replace("-", "");
     let gc = compute_gc_content(seq.as_bytes());
     Ok(format!("{:.16}", gc))
 }
