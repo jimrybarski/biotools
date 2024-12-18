@@ -116,3 +116,16 @@ $ biotools pairwise-semiglobal ACGT ACAAAAGT --gap-open 0 --gap-extend 0
   ||    ||
 0 ACAAAAGT 8
 ```
+
+### Suggested aliases
+
+The subcommands are deliberately verbose to give clarity to new users. You may prefer aliases such as these:
+
+```
+alias rc='biotools reverse-complement'
+alias len='biotools length'
+alias gc='biotools gc-content'
+alias pw='biotools pairwise-semiglobal --try-rc'
+alias pwl='biotools pairwise-local --try-rc'
+alias pwg='biotools pairwise-global --try-rc'
+```
