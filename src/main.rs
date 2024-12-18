@@ -1,8 +1,8 @@
-use anyhow::{bail, Context, Result, anyhow};
+use anyhow::{anyhow, bail, Context, Result};
 use bio::alignment::pairwise::Aligner;
 use bio::alignment::{Alignment, AlignmentOperation};
 use bio::alphabets::dna::revcomp;
-use bio::seq_analysis::gc::gc_content as compute_gc_content;
+use bio::seq_analysis::gc::gc_content as rustbio_gc_content;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -87,8 +87,8 @@ enum AlignmentCommand {
     Semiglobal,
 }
 
-fn build_reverse_complement(user_input: Vec<String>) -> Result<String> {
-    let reversed_complements: Vec<String> = user_input
+fn build_reverse_complement(seqs: Vec<String>) -> Result<String> {
+    let reversed_complements: Vec<String> = seqs
         .into_iter()
         .rev()
         .map(|sequence| {
@@ -99,8 +99,9 @@ fn build_reverse_complement(user_input: Vec<String>) -> Result<String> {
     Ok(reversed_complements.join(" "))
 }
 
-fn get_string_length(seqs: Vec<String>) -> Result<String> {
-    Ok(seqs.join("")
+fn get_seq_length(seqs: Vec<String>) -> Result<String> {
+    Ok(seqs
+        .join("")
         .chars()
         .filter(|ch| *ch != '-')
         .filter(|ch| *ch != ' ')
@@ -118,14 +119,24 @@ fn confirm_valid_nucleic_acid(seq: &str) -> Result<()> {
     Ok(())
 }
 
-fn gc_content(seqs: Vec<String>) -> Result<String> {
+fn compute_gc_content(seqs: Vec<String>) -> Result<f32> {
     let seq = seqs.join("").replace(" ", "").replace("-", "");
     confirm_valid_nucleic_acid(&seq)?;
-    let gc = compute_gc_content(seq.as_bytes());
+    Ok(rustbio_gc_content(seq.as_bytes()))
+}
+
+fn gc_content(seqs: Vec<String>) -> Result<String> {
+    let gc = compute_gc_content(seqs)?;
     Ok(format!("{:.16}", gc))
 }
 
-fn format_alignment(alignment: Alignment, a: String, b: String, hide_coords: bool, comment: String) -> String {
+fn format_alignment(
+    alignment: Alignment,
+    a: String,
+    b: String,
+    hide_coords: bool,
+    comment: String,
+) -> String {
     let (a_raw_start, b_raw_start) = if hide_coords {
         ("".to_string(), "".to_string())
     } else {
@@ -246,7 +257,13 @@ fn pairwise(
     let b = seqs[1].clone();
     let a_bytes = a.as_bytes();
     let b_bytes = b.as_bytes();
-    let score = |a: u8, b: u8| if a.to_ascii_uppercase() == b.to_ascii_uppercase() { 1i32 } else { -1i32 };
+    let score = |a: u8, b: u8| {
+        if a.to_ascii_uppercase() == b.to_ascii_uppercase() {
+            1i32
+        } else {
+            -1i32
+        }
+    };
 
     let mut aligner =
         Aligner::with_capacity(a.len(), b.len(), gap_open_score, gap_extend_score, &score);
@@ -278,7 +295,7 @@ fn main() -> Result<()> {
 
     let output = match args.command {
         Commands::ReverseComplement { seqs } => build_reverse_complement(seqs),
-        Commands::Length { seq } => get_string_length(seq),
+        Commands::Length { seq } => get_seq_length(seq),
         Commands::GCContent { seqs } => gc_content(seqs),
         Commands::PairwiseLocal {
             seqs,
@@ -330,5 +347,136 @@ fn main() -> Result<()> {
             Ok(())
         }
         Err(e) => abort(&format!("Error: {:?}", e)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_reverse_complement() {
+        let seqs = vec!["GATTACA".to_string()];
+        let rc = build_reverse_complement(seqs).unwrap();
+        assert_eq!("TGTAATC".to_string(), rc);
+    }
+
+    #[test]
+    fn test_reverse_complement_with_pairwise_cruft() {
+        let seqs = vec!["GATT".to_string(), "ACA-TTGA".to_string()];
+        let rc = build_reverse_complement(seqs).unwrap();
+        assert_eq!("TCAA-TGT AATC".to_string(), rc);
+    }
+
+    #[test]
+    fn test_length() {
+        let seqs = vec!["GATTACA".to_string()];
+        let length = get_seq_length(seqs).unwrap();
+        assert_eq!(length, 7.to_string());
+    }
+
+    #[test]
+    fn test_length_spaces() {
+        let seqs = vec!["GAT".to_string(), "C".to_string(), "TACA".to_string()];
+        let length = get_seq_length(seqs).unwrap();
+        assert_eq!(length, 8.to_string());
+    }
+
+    #[test]
+    fn test_length_gaps() {
+        let seqs = vec!["GAT-CT ACA".to_string()];
+        let length = get_seq_length(seqs).unwrap();
+        assert_eq!(length, 8.to_string());
+    }
+
+    #[test]
+    fn test_gc_content() {
+        let seqs = vec!["GGG".to_string(), "GAA-TA".to_string()];
+        let gc = gc_content(seqs).unwrap();
+        assert_eq!(gc, "0.5000000000000000");
+    }
+
+    #[test]
+    fn test_compute_gc_content_0() {
+        let seqs = vec!["AT".to_string(), "TTAA".to_string()];
+        let gc = compute_gc_content(seqs).unwrap();
+        assert_eq!(gc, 0.0);
+    }
+
+    #[test]
+    fn test_compute_gc_content_25() {
+        let seqs = vec!["GG".to_string(), "TTTAAA".to_string()];
+        let gc = compute_gc_content(seqs).unwrap();
+        assert_eq!(gc, 0.25);
+    }
+
+    #[test]
+    fn test_compute_gc_content_50() {
+        let seqs = vec!["GGG".to_string(), "GAA-TA".to_string()];
+        let gc = compute_gc_content(seqs).unwrap();
+        assert_eq!(gc, 0.5);
+    }
+
+    #[test]
+    fn test_compute_gc_content_75() {
+        let seqs = vec!["GGTT".to_string(), "CCGG".to_string()];
+        let gc = compute_gc_content(seqs).unwrap();
+        assert_eq!(gc, 0.75);
+    }
+
+    #[test]
+    fn test_compute_gc_content_100() {
+        let seqs = vec!["GG".to_string(), "GGG".to_string()];
+        let gc = compute_gc_content(seqs).unwrap();
+        assert_eq!(gc, 1.0);
+    }
+
+    #[test]
+    fn test_pairwise_local() {
+        let actual = pairwise(AlignmentCommand::Local, vec!["ACAGT".to_string(), "ACGT".to_string()], 2, 1, false, false).unwrap();
+        let expected = "3 GT 5\n  ||\n2 GT 4";
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pairwise_semiglobal() {
+        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["ACAGT".to_string(), "ACGT".to_string()], 2, 1, false, false).unwrap();
+        let expected = "0 ACAGT 5\n  || ||\n0 AC-GT 4";
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pairwise_global() {
+        let actual = pairwise(AlignmentCommand::Global, vec!["GGGGCCCCGGGGACAGT".to_string(), "ACGT".to_string()], 2, 1, false, false).unwrap();
+        let expected = "0 GGGGCCCCGGGGACAGT 17\n              || ||\n0 ------------AC-GT  4";
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pairwise_semiglobal_hide_coords() {
+        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["ACAGT".to_string(), "ACGT".to_string()], 2, 1, true, false).unwrap();
+        let expected = "ACAGT \n|| ||\nAC-GT ";
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pairwise_semiglobal_tryrc() {
+        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["TGTAATC".to_string(), "GGCGATTACAATGACA".to_string()], 2, 1, false, true).unwrap();
+        let expected = "0 GATTACA  7 RC\n  |||||||\n3 GATTACA 10";
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pairwise_semiglobal_high_gap_penalties() {
+        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["ACGT".to_string(), "ACAAAAGT".to_string()], 5, 5, false, false).unwrap();
+        let expected = "0 ACGT 4\n  |.||\n4 AAGT 8";
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pairwise_semiglobal_zero_gap_penalties() {
+        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["ACGT".to_string(), "ACAAAAGT".to_string()], 0, 0, false, true).unwrap();
+        let expected = "0 AC----GT 4\n  ||    ||\n0 ACAAAAGT 8";
+        assert_eq!(actual, expected);
     }
 }

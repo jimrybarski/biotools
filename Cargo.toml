@@ -1,6 +1,6 @@
 [package]
 name = "biotools"
-version = "0.13.1"
+version = "1.0.0"
 authors = ["Jim Rybarski <jim@rybarski.com>"]
 edition = "2021"
 license = "MIT"
