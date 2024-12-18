@@ -88,7 +88,7 @@ ACAGT
 AC-GT
 ```
 
-You can have biotools try both the forward sequence and reverse complement and then pick the one with the best alignment score. The text `RC` will be displayed the right of the first sequence if the reverse complement was better.
+You can have biotools try both the forward sequence and reverse complement and then pick the one with the best alignment score. The text `RC` will be displayed the right of the first sequence if the reverse complement was better. The coordinates are of the reverse complemented sequence in this case, not the original.
 
 ```
 $ biotools pairwise-semiglobal TGTAATC GGCGATTACAATGACA
@@ -103,6 +103,7 @@ $ biotools pairwise-semiglobal TGTAATC GGCGATTACAATGACA --try-rc
 ```
 
 You can adjust the gap penalties (substitutions are always penalized a value of 1). These are given as positive numbers.
+Defaults: gap open penalty: 2, gap extend penalty: 1.
 
 ```
 $ biotools pairwise-semiglobal ACGT ACAAAAGT --gap-open 5 --gap-extend 5
