@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context, Result, anyhow};
 use bio::alignment::pairwise::Aligner;
 use bio::alignment::{Alignment, AlignmentOperation};
 use bio::alphabets::dna::revcomp;
@@ -109,8 +109,18 @@ fn get_string_length(seqs: Vec<String>) -> Result<String> {
         .to_string())
 }
 
+fn confirm_valid_nucleic_acid(seq: &str) -> Result<()> {
+    for (i, c) in seq.chars().enumerate() {
+        if !matches!(c, 'A' | 'C' | 'G' | 'T' | 'U' | 'a' | 'c' | 'g' | 't' | 'u') {
+            return Err(anyhow!("Invalid/ambiguous base: '{c}' at position {i}"));
+        }
+    }
+    Ok(())
+}
+
 fn gc_content(seqs: Vec<String>) -> Result<String> {
     let seq = seqs.join("").replace(" ", "").replace("-", "");
+    confirm_valid_nucleic_acid(&seq)?;
     let gc = compute_gc_content(seq.as_bytes());
     Ok(format!("{:.16}", gc))
 }
