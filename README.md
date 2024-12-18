@@ -4,9 +4,23 @@ These are just trivial bioinformatics tools that are convenient to have availabl
 
 ![Build](https://github.com/jimrybarski/biotools/actions/workflows/build.yml/badge.svg) ![Tests](https://github.com/jimrybarski/biotools/actions/workflows/tests.yml/badge.svg)
 
-Installation: `cargo install biotools`  
+#### Installation
 
-Build: `git clone git@github.com:jimrybarski/biotools.git && cd biotools && cargo build --release`  
+`cargo install biotools`  
+
+#### Build
+
+`git clone git@github.com:jimrybarski/biotools.git && cd biotools && cargo build --release`  
+
+#### Test
+
+`cargo test`
+
+#### Coordinate system
+
+Coordinates are given in zero-based, half-open intervals (i.e. the same as Python, C, Rust, etc.).
+
+#### Commands 
 
 You can add `--help` after any subcommand for subcommand-specific options.  
 
@@ -84,7 +98,7 @@ $ biotools pairwise-global GGGGCCCCGGGGACAGT ACGT
 Coordinates can be disabled:
 
 ```
-biotools pairwise-semiglobal ACAGT ACGT --hide-coords
+$ biotools pairwise-semiglobal ACAGT ACGT --hide-coords
 ACAGT
 || ||
 AC-GT
