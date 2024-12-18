@@ -76,7 +76,7 @@ $ biotools gc-content GGG GAA-TA
 
 ### Pairwise alignment
 
-There are three pairwise alignment commands, for local, semiglobal and global alignments. We use the aligner from rust-bio, which ultimately uses an implementation of Smith-Waterman.
+There are three pairwise alignment commands, for local, semiglobal and global alignments. We use the aligner from ![rust-bio](https://github.com/rust-bio/rust-bio), which ultimately uses an implementation of Smith-Waterman.
 
 ```
 $ biotools pairwise-local ACAGT ACGT
