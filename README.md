@@ -80,19 +80,19 @@ There are three pairwise alignment commands, for local, semiglobal and global al
 
 ```
 $ biotools pairwise-local ACAGT ACGT
-3 GT 5
+4 GT 5
   ||
-2 GT 4
+3 GT 4
 
 $ biotools pairwise-semiglobal ACAGT ACGT
-0 ACAGT 5
+1 ACAGT 5
   || ||
-0 AC-GT 4
+1 AC-GT 4
 
 $ biotools pairwise-global GGGGCCCCGGGGACAGT ACGT
-0 GGGGCCCCGGGGACAGT 17
+1 GGGGCCCCGGGGACAGT 17
               || ||
-0 ------------AC-GT  4
+1 ------------AC-GT 4
 ```
 
 Coordinates can be disabled:
@@ -104,18 +104,30 @@ ACAGT
 AC-GT
 ```
 
-You can have biotools try both the forward sequence and reverse complement and then pick the one with the best alignment score. The text `RC` will be displayed the right of the first sequence if the reverse complement was better. The coordinates are of the reverse complemented sequence in this case, not the original.
+Lines wrap once the alignment string exceeds 60 characters (this does not include the characters from the coordinates). You can adjust the limit:
+
+```
+$ biotools pairwise-semiglobal --line-width 30 ATTAGATCATCCGGGCAGACAGAGGTATCCCACGTTCCGTCTACCTGCTGAAGGTAATCT ATTAGTCATCCGCGCTTACAGAGGTATCCCACGTTCCGTCTACCTGCTGAAGGTAATCT`
+ 1 ATTAGATCATCCGGGCAGACAGAGGTATCC 30
+   ||||| |||||||.||..||||||||||||
+ 1 ATTAG-TCATCCGCGCTTACAGAGGTATCC 29
+
+31 CACGTTCCGTCTACCTGCTGAAGGTAATCT 60
+   ||||||||||||||||||||||||||||||
+30 CACGTTCCGTCTACCTGCTGAAGGTAATCT 59
+```
+You can have biotools try both the forward sequence and reverse complement and then pick the one with the best alignment score. If the reverse complement is superior, the coordinates will be inverted for the top sequence:
 
 ```
 $ biotools pairwise-semiglobal TGTAATC GGCGATTACAATGACA
-0 TGTAATC  7
+1 TGTAATC 7
   |..|||.
-6 TACAATG 13
+7 TACAATG 13
 
 $ biotools pairwise-semiglobal TGTAATC GGCGATTACAATGACA --try-rc
-0 GATTACA  7 RC
+7 GATTACA 1
   |||||||
-3 GATTACA 10
+4 GATTACA 10
 ```
 
 You can adjust the gap penalties (substitutions are always penalized a value of 1). These are given as positive numbers.
@@ -123,14 +135,28 @@ Defaults: gap open penalty: 2, gap extend penalty: 1.
 
 ```
 $ biotools pairwise-semiglobal ACGT ACAAAAGT --gap-open 5 --gap-extend 5
-0 ACGT 4
+1 ACGT 4
   |.||
-4 AAGT 8
+5 AAGT 8
 
 $ biotools pairwise-semiglobal ACGT ACAAAAGT --gap-open 0 --gap-extend 0
-0 AC----GT 4
+1 AC----GT 4
   ||    ||
-0 ACAAAAGT 8
+1 ACAAAAGT 8
+```
+
+By default, 1-based inclusive coordinates are used. You can switch to 0-based, half-open coordinates (so the range you would use in Python or Rust to select the substring) with `--use-0-based-coords`:
+
+```
+biotools pairwise-semiglobal --use-0-based-coords ACAGT ACGT`
+0 ACAGT 5
+  || ||
+0 AC-GT 4
+
+biotools pairwise-semiglobal --try-rc --use-0-based-coords TGTAATC GGCGATTACAATGACA`
+7 GATTACA 0
+  |||||||
+3 GATTACA 10
 ```
 
 ### Suggested aliases
