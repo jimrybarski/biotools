@@ -45,7 +45,7 @@ enum Commands {
             help = "Aligns the first sequence and its reverse complement with the second sequence and returns the superior alignment."
         )]
         try_rc: bool,
-        #[arg(long, help = "Display width", default_value_t = 60)]
+        #[arg(long, help = "Maximum width of aligned characters", default_value_t = 60)]
         line_width: usize,
         #[arg(long, help = "Use zero-based coordinates")]
         use_0_based_coords: bool,
@@ -65,7 +65,7 @@ enum Commands {
             help = "Aligns the first sequence and its reverse complement with the second sequence and returns the superior alignment."
         )]
         try_rc: bool,
-        #[arg(long, help = "Display width", default_value_t = 60)]
+        #[arg(long, help = "Maximum width of aligned characters", default_value_t = 60)]
         line_width: usize,
         #[arg(long, help = "Use zero-based coordinates")]
         use_0_based_coords: bool,
@@ -85,7 +85,7 @@ enum Commands {
             help = "Aligns the first sequence and its reverse complement with the second sequence and returns the superior alignment."
         )]
         try_rc: bool,
-        #[arg(long, help = "Display width", default_value_t = 60)]
+        #[arg(long, help = "Maximum width of aligned characters", default_value_t = 60)]
         line_width: usize,
         #[arg(long, help = "Use zero-based coordinates")]
         use_0_based_coords: bool,
