@@ -4,6 +4,7 @@ use bio::alignment::{Alignment, AlignmentOperation};
 use bio::alphabets::dna::revcomp;
 use bio::seq_analysis::gc::gc_content as rustbio_gc_content;
 use clap::{Parser, Subcommand};
+use std::cmp;
 
 #[derive(Parser, Debug)]
 #[command(version, about="Simple bioinformatics tools for sequence analysis and manipulation", long_about = None)]
@@ -44,6 +45,10 @@ enum Commands {
             help = "Aligns the first sequence and its reverse complement with the second sequence and returns the superior alignment."
         )]
         try_rc: bool,
+        #[arg(long, help = "Display width", default_value_t = 60)]
+        line_width: usize,
+        #[arg(long, help = "Use zero-based coordinates")]
+        use_0_based_coords: bool,
     },
     #[command(about = "Performs a semiglobal pairwise alignment of two sequences.")]
     PairwiseSemiglobal {
@@ -60,6 +65,10 @@ enum Commands {
             help = "Aligns the first sequence and its reverse complement with the second sequence and returns the superior alignment."
         )]
         try_rc: bool,
+        #[arg(long, help = "Display width", default_value_t = 60)]
+        line_width: usize,
+        #[arg(long, help = "Use zero-based coordinates")]
+        use_0_based_coords: bool,
     },
     #[command(about = "Performs a global pairwise alignment of two sequences.")]
     PairwiseGlobal {
@@ -76,6 +85,10 @@ enum Commands {
             help = "Aligns the first sequence and its reverse complement with the second sequence and returns the superior alignment."
         )]
         try_rc: bool,
+        #[arg(long, help = "Display width", default_value_t = 60)]
+        line_width: usize,
+        #[arg(long, help = "Use zero-based coordinates")]
+        use_0_based_coords: bool,
     },
 }
 
@@ -85,6 +98,13 @@ enum AlignmentCommand {
     Local,
     Global,
     Semiglobal,
+}
+
+struct DisplayOptions {
+    hide_coords: bool,
+    try_rc: bool,
+    line_width: usize,
+    use_0_based_coords: bool,
 }
 
 fn build_reverse_complement(seqs: Vec<String>) -> Result<String> {
@@ -130,100 +150,104 @@ fn gc_content(seqs: Vec<String>) -> Result<String> {
     Ok(format!("{:.16}", gc))
 }
 
-fn format_alignment(
+struct AlignmentDisplayLine {
+    a_alignment: String,
+    b_alignment: String,
+    a_start: usize,
+    a_end: usize,
+    b_start: usize,
+    b_end: usize,
+    alignment_string: String,
+}
+
+fn make_display_lines(
     alignment: Alignment,
-    a: String,
-    b: String,
-    hide_coords: bool,
-    comment: String,
-) -> String {
-    let (a_raw_start, b_raw_start) = if hide_coords {
-        ("".to_string(), "".to_string())
-    } else {
-        (alignment.xstart.to_string(), alignment.ystart.to_string())
-    };
-
-    let (a_raw_end, b_raw_end) = if hide_coords {
-        ("".to_string(), "".to_string())
-    } else {
-        (alignment.xend.to_string(), alignment.yend.to_string())
-    };
-
-    let start_length = std::cmp::max(a_raw_start.len(), b_raw_start.len());
-    let end_length = std::cmp::max(a_raw_end.len(), b_raw_end.len());
-
-    let (mut a_pretty, mut alignment_string, mut b_pretty, a_end, b_end) = if hide_coords {
-        (
-            "".to_string(),
-            "".to_string(),
-            "".to_string(),
-            "".to_string(),
-            "".to_string(),
-        )
-    } else {
-        (
-            format!("{:>width$} ", a_raw_start, width = start_length),
-            format!("{:>width$} ", "".to_string(), width = start_length),
-            format!("{:>width$} ", b_raw_start, width = start_length),
-            format!("{:>width$}", a_raw_end, width = end_length),
-            format!("{:>width$}", b_raw_end, width = end_length),
-        )
-    };
-
+    a_seq: String,
+    b_seq: String,
+    line_width: usize,
+) -> (Vec<AlignmentDisplayLine>, usize) {
+    let mut a_start = alignment.xstart;
+    let mut b_start = alignment.ystart;
     let mut a_index = alignment.xstart;
     let mut b_index = alignment.ystart;
+    let mut display_lines: Vec<AlignmentDisplayLine> = vec![];
 
-    for op in alignment.operations {
-        match op {
-            AlignmentOperation::Match => {
-                let c = &a[a_index..a_index + 1];
-                a_pretty.push_str(c);
-                a_index += 1;
-                alignment_string.push('|');
-                let d = &b[b_index..b_index + 1];
-                b_pretty.push_str(d);
-                b_index += 1;
-            }
-            AlignmentOperation::Del => {
-                a_pretty.push('-');
-                alignment_string.push(' ');
-                let d = &b[b_index..b_index + 1];
-                b_pretty.push_str(d);
-                b_index += 1;
-            }
-            AlignmentOperation::Ins => {
-                let c = &a[a_index..a_index + 1];
-                a_pretty.push_str(c);
-                a_index += 1;
-                alignment_string.push(' ');
-                b_pretty.push('-');
-            }
-            AlignmentOperation::Subst => {
-                let c = &a[a_index..a_index + 1];
-                a_pretty.push_str(c);
-                a_index += 1;
-                alignment_string.push('.');
-                let d = &b[b_index..b_index + 1];
-                b_pretty.push_str(d);
-                b_index += 1;
-            }
-            AlignmentOperation::Xclip(n) => {
-                for _ in 0..n {
-                    a_pretty.push('-');
-                    b_pretty.push(' ');
-                    b_pretty.push(' ');
+    for op_chunk in alignment.operations.chunks(line_width) {
+        let mut a_alignment = "".to_string();
+        let mut b_alignment = "".to_string();
+        let mut alignment_string = "".to_string();
+
+        for op in op_chunk {
+            match op {
+                AlignmentOperation::Match => {
+                    let a_char = &a_seq[a_index..a_index + 1];
+                    a_alignment.push_str(a_char);
+                    a_index += 1;
+
+                    let b_char = &b_seq[b_index..b_index + 1];
+                    b_alignment.push_str(b_char);
+                    b_index += 1;
+
+                    alignment_string.push('|');
                 }
-            }
-            AlignmentOperation::Yclip(n) => {
-                for _ in 0..n {
-                    a_pretty.push(' ');
-                    b_pretty.push(' ');
-                    b_pretty.push('-');
+                AlignmentOperation::Del => {
+                    a_alignment.push('-');
+                    let b_char = &b_seq[b_index..b_index + 1];
+                    b_alignment.push_str(b_char);
+                    b_index += 1;
+
+                    alignment_string.push(' ');
+                }
+                AlignmentOperation::Ins => {
+                    let a_char = &a_seq[a_index..a_index + 1];
+                    a_alignment.push_str(a_char);
+                    a_index += 1;
+
+                    b_alignment.push('-');
+
+                    alignment_string.push(' ');
+                }
+                AlignmentOperation::Subst => {
+                    let a_char = &a_seq[a_index..a_index + 1];
+                    a_alignment.push_str(a_char);
+                    a_index += 1;
+
+                    let b_char = &b_seq[b_index..b_index + 1];
+                    b_alignment.push_str(b_char);
+                    b_index += 1;
+
+                    alignment_string.push('.');
+                }
+                AlignmentOperation::Xclip(n) => {
+                    for _ in 0..*n {
+                        a_alignment.push('-');
+                        b_alignment.push(' ');
+                        alignment_string.push(' ');
+                    }
+                }
+                AlignmentOperation::Yclip(n) => {
+                    for _ in 0..*n {
+                        a_alignment.push(' ');
+                        b_alignment.push('-');
+                        alignment_string.push(' ');
+                    }
                 }
             }
         }
+        let display_line = AlignmentDisplayLine {
+            a_alignment,
+            b_alignment,
+            a_start,
+            a_end: a_index,
+            b_start,
+            b_end: b_index,
+            alignment_string,
+        };
+        a_start = a_index;
+        b_start = b_index;
+        display_lines.push(display_line);
     }
-    format!("{a_pretty} {a_end}{comment}\n{alignment_string}\n{b_pretty} {b_end}")
+    (display_lines, a_index)
 }
 
 fn run_alignment(
@@ -244,8 +268,7 @@ fn pairwise(
     seqs: Vec<String>,
     gap_open_score: i32,
     gap_extend_score: i32,
-    hide_coords: bool,
-    try_rc: bool,
+    opts: DisplayOptions,
 ) -> Result<String> {
     if seqs.len() != 2 {
         bail!("Pairwise comparison needs exactly two sequences");
@@ -268,23 +291,123 @@ fn pairwise(
     let mut aligner =
         Aligner::with_capacity(a.len(), b.len(), gap_open_score, gap_extend_score, &score);
     let alignment = run_alignment(&alignment_command, &mut aligner, a_bytes, b_bytes);
-    let (alignment, a, comment) = if try_rc {
+    let (alignment, a, a_is_rc) = if opts.try_rc {
         let a_rc_bytes = revcomp(a.as_bytes());
         let a_rc = String::from_utf8(a_rc_bytes.clone())?;
         let alignment_rc = run_alignment(&alignment_command, &mut aligner, &a_rc_bytes, b_bytes);
         if alignment.score >= alignment_rc.score {
-            (alignment, a, "".to_string())
+            (alignment, a, false)
         } else {
-            (alignment_rc, a_rc, " RC".to_string())
+            (alignment_rc, a_rc, true)
         }
     } else {
-        (alignment, a, "".to_string())
+        (alignment, a, false)
     };
 
-    let pretty_alignment = format_alignment(alignment, a, b, hide_coords, comment);
+    let (display_lines, a_end) = make_display_lines(alignment, a, b, opts.line_width);
+    let pretty_alignment = format_display_lines(
+        &display_lines,
+        opts.hide_coords,
+        a_end,
+        a_is_rc,
+        opts.use_0_based_coords,
+    );
     Ok(pretty_alignment)
 }
 
+fn format_display_lines(
+    display_lines: &[AlignmentDisplayLine],
+    hide_coords: bool,
+    final_a_end: usize,
+    a_is_rc: bool,
+    use_0_based_coordinates: bool,
+) -> String {
+    let mut output: Vec<String> = vec![];
+
+    // If we have numbers that span an order of magnitude, they won't have the same width (e.g.
+    // "10" occupies two colums while "100" occupies three). We need to pad the coordinates on
+    // the left of the alignments with spaces so that each alignment string is lined up with
+    // all the others. Thus, we need to find the widest number first.
+    let mut max_coordinate = 0;
+    for line in display_lines {
+        let (a_start, _, b_start) =
+            calculate_formatted_coordinates(line, final_a_end, a_is_rc, use_0_based_coordinates);
+
+        max_coordinate = cmp::max(
+            max_coordinate,
+            [a_start, b_start].into_iter().max().unwrap(),
+        );
+    }
+    let width = max_coordinate.to_string().len();
+
+    for line in display_lines {
+        let mut line_output = "".to_string();
+
+        if hide_coords {
+            line_output.push_str(&line.a_alignment);
+            line_output.push('\n');
+            line_output.push_str(&line.alignment_string);
+            line_output.push('\n');
+            line_output.push_str(&line.b_alignment);
+            output.push(line_output);
+        } else {
+            let (a_start, a_end, b_start) = calculate_formatted_coordinates(
+                line,
+                final_a_end,
+                a_is_rc,
+                use_0_based_coordinates,
+            );
+
+            let a_start_text = format!("{:>width$}", a_start, width = width);
+            let b_start_text = format!("{:>width$}", b_start, width = width);
+            let alignment_string_start_text = format!("{:>width$}", "".to_string(), width = width);
+
+            line_output
+                .push_str(format!("{} {} {}\n", a_start_text, line.a_alignment, a_end).as_str());
+            line_output.push_str(
+                format!(
+                    "{} {}\n",
+                    alignment_string_start_text, line.alignment_string
+                )
+                .as_str(),
+            );
+            line_output
+                .push_str(format!("{} {} {}", b_start_text, line.b_alignment, line.b_end).as_str());
+            output.push(line_output);
+        }
+    }
+    output.join("\n\n")
+}
+
+fn calculate_formatted_coordinates(
+    line: &AlignmentDisplayLine,
+    final_a_end: usize,
+    a_is_rc: bool,
+    use_0_based_coordinates: bool,
+) -> (usize, usize, usize) {
+    let mut a_start = if a_is_rc {
+        final_a_end - line.a_start
+    } else {
+        line.a_start
+    };
+
+    let mut a_end = if a_is_rc {
+        final_a_end - line.a_end + 1
+    } else {
+        line.a_end
+    };
+
+    let mut b_start = line.b_start;
+    if !use_0_based_coordinates {
+        b_start += 1;
+        if !a_is_rc {
+            a_start += 1;
+        }
+    } else if a_is_rc {
+        a_end -= 1;
+    }
+    (a_start, a_end, b_start)
+}
 fn abort(error_message: &str) -> ! {
     eprintln!("biotools error: {}", error_message);
     std::process::exit(47)
@@ -303,42 +426,70 @@ fn main() -> Result<()> {
             gap_extend,
             hide_coords,
             try_rc,
-        } => pairwise(
-            AlignmentCommand::Local,
-            seqs,
-            gap_open,
-            gap_extend,
-            hide_coords,
-            try_rc,
-        ),
+            line_width,
+            use_0_based_coords,
+        } => {
+            let display_opts = DisplayOptions {
+                hide_coords,
+                try_rc,
+                line_width,
+                use_0_based_coords,
+            };
+            pairwise(
+                AlignmentCommand::Local,
+                seqs,
+                gap_open,
+                gap_extend,
+                display_opts,
+            )
+        }
         Commands::PairwiseSemiglobal {
             seqs,
             gap_open,
             gap_extend,
             hide_coords,
             try_rc,
-        } => pairwise(
-            AlignmentCommand::Semiglobal,
-            seqs,
-            gap_open,
-            gap_extend,
-            hide_coords,
-            try_rc,
-        ),
+            line_width,
+            use_0_based_coords,
+        } => {
+            let display_opts = DisplayOptions {
+                hide_coords,
+                try_rc,
+                line_width,
+                use_0_based_coords,
+            };
+
+            pairwise(
+                AlignmentCommand::Semiglobal,
+                seqs,
+                gap_open,
+                gap_extend,
+                display_opts,
+            )
+        }
         Commands::PairwiseGlobal {
             seqs,
             gap_open,
             gap_extend,
             hide_coords,
             try_rc,
-        } => pairwise(
-            AlignmentCommand::Global,
-            seqs,
-            gap_open,
-            gap_extend,
-            hide_coords,
-            try_rc,
-        ),
+            line_width,
+            use_0_based_coords,
+        } => {
+            let display_opts = DisplayOptions {
+                hide_coords,
+                try_rc,
+                line_width,
+                use_0_based_coords,
+            };
+            pairwise(
+                AlignmentCommand::Global,
+                seqs,
+                gap_open,
+                gap_extend,
+                display_opts,
+            )
+        }
     };
 
     match output {
@@ -433,49 +584,140 @@ mod tests {
 
     #[test]
     fn test_pairwise_local() {
-        let actual = pairwise(AlignmentCommand::Local, vec!["ACAGT".to_string(), "ACGT".to_string()], 2, 1, false, false).unwrap();
+        let opts = DisplayOptions {
+            hide_coords: false,
+            line_width: 60,
+            try_rc: false,
+            use_0_based_coords: true,
+        };
+        let actual = pairwise(
+            AlignmentCommand::Local,
+            vec!["ACAGT".to_string(), "ACGT".to_string()],
+            2,
+            1,
+            opts
+        )
+        .unwrap();
         let expected = "3 GT 5\n  ||\n2 GT 4";
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_pairwise_semiglobal() {
-        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["ACAGT".to_string(), "ACGT".to_string()], 2, 1, false, false).unwrap();
+        let opts = DisplayOptions {
+            hide_coords: false,
+            line_width: 60,
+            try_rc: false,
+            use_0_based_coords: true,
+        };
+        let actual = pairwise(
+            AlignmentCommand::Semiglobal,
+            vec!["ACAGT".to_string(), "ACGT".to_string()],
+            2,
+            1,
+            opts
+        )
+        .unwrap();
         let expected = "0 ACAGT 5\n  || ||\n0 AC-GT 4";
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_pairwise_global() {
-        let actual = pairwise(AlignmentCommand::Global, vec!["GGGGCCCCGGGGACAGT".to_string(), "ACGT".to_string()], 2, 1, false, false).unwrap();
-        let expected = "0 GGGGCCCCGGGGACAGT 17\n              || ||\n0 ------------AC-GT  4";
+        let opts = DisplayOptions {
+            hide_coords: false,
+            line_width: 60,
+            try_rc: false,
+            use_0_based_coords: true,
+        };
+        let actual = pairwise(
+            AlignmentCommand::Global,
+            vec!["GGGGCCCCGGGGACAGT".to_string(), "ACGT".to_string()],
+            2,
+            1,
+            opts
+        )
+        .unwrap();
+        let expected = "0 GGGGCCCCGGGGACAGT 17\n              || ||\n0 ------------AC-GT 4";
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_pairwise_semiglobal_hide_coords() {
-        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["ACAGT".to_string(), "ACGT".to_string()], 2, 1, true, false).unwrap();
-        let expected = "ACAGT \n|| ||\nAC-GT ";
+        let opts = DisplayOptions {
+            hide_coords: true,
+            line_width: 60,
+            try_rc: false,
+            use_0_based_coords: true,
+        };
+        let actual = pairwise(
+            AlignmentCommand::Semiglobal,
+            vec!["ACAGT".to_string(), "ACGT".to_string()],
+            2,
+            1,
+            opts
+        )
+        .unwrap();
+        let expected = "ACAGT\n|| ||\nAC-GT";
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_pairwise_semiglobal_tryrc() {
-        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["TGTAATC".to_string(), "GGCGATTACAATGACA".to_string()], 2, 1, false, true).unwrap();
-        let expected = "0 GATTACA  7 RC\n  |||||||\n3 GATTACA 10";
+        let opts = DisplayOptions {
+            hide_coords: false,
+            line_width: 60,
+            try_rc: true,
+            use_0_based_coords: true,
+        };
+        let actual = pairwise(
+            AlignmentCommand::Semiglobal,
+            vec!["TGTAATC".to_string(), "GGCGATTACAATGACA".to_string()],
+            2,
+            1,
+            opts
+        )
+        .unwrap();
+        let expected = "7 GATTACA 0\n  |||||||\n3 GATTACA 10";
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_pairwise_semiglobal_high_gap_penalties() {
-        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["ACGT".to_string(), "ACAAAAGT".to_string()], 5, 5, false, false).unwrap();
+        let opts = DisplayOptions {
+            hide_coords: false,
+            line_width: 60,
+            try_rc: false,
+            use_0_based_coords: true,
+        };
+        let actual = pairwise(
+            AlignmentCommand::Semiglobal,
+            vec!["ACGT".to_string(), "ACAAAAGT".to_string()],
+            5,
+            5,
+            opts
+        )
+        .unwrap();
         let expected = "0 ACGT 4\n  |.||\n4 AAGT 8";
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_pairwise_semiglobal_zero_gap_penalties() {
-        let actual = pairwise(AlignmentCommand::Semiglobal, vec!["ACGT".to_string(), "ACAAAAGT".to_string()], 0, 0, false, true).unwrap();
+        let opts = DisplayOptions {
+            hide_coords: false,
+            line_width: 60,
+            try_rc: true,
+            use_0_based_coords: true,
+        };
+        let actual = pairwise(
+            AlignmentCommand::Semiglobal,
+            vec!["ACGT".to_string(), "ACAAAAGT".to_string()],
+            0,
+            0,
+            opts
+        )
+        .unwrap();
         let expected = "0 AC----GT 4\n  ||    ||\n0 ACAAAAGT 8";
         assert_eq!(actual, expected);
     }
