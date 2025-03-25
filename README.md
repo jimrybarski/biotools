@@ -107,7 +107,7 @@ AC-GT
 Lines wrap once the alignment string exceeds 60 characters (this does not include the characters from the coordinates). You can adjust the limit:
 
 ```
-$ biotools pairwise-semiglobal --line-width 30 ATTAGATCATCCGGGCAGACAGAGGTATCCCACGTTCCGTCTACCTGCTGAAGGTAATCT ATTAGTCATCCGCGCTTACAGAGGTATCCCACGTTCCGTCTACCTGCTGAAGGTAATCT`
+$ biotools pairwise-semiglobal --line-width 30 ATTAGATCATCCGGGCAGACAGAGGTATCCCACGTTCCGTCTACCTGCTGAAGGTAATCT ATTAGTCATCCGCGCTTACAGAGGTATCCCACGTTCCGTCTACCTGCTGAAGGTAATCT
  1 ATTAGATCATCCGGGCAGACAGAGGTATCC 30
    ||||| |||||||.||..||||||||||||
  1 ATTAG-TCATCCGCGCTTACAGAGGTATCC 29
@@ -148,12 +148,12 @@ $ biotools pairwise-semiglobal ACGT ACAAAAGT --gap-open 0 --gap-extend 0
 By default, 1-based inclusive coordinates are used. You can switch to 0-based, half-open coordinates (so the range you would use in Python or Rust to select the substring) with `--use-0-based-coords`:
 
 ```
-biotools pairwise-semiglobal --use-0-based-coords ACAGT ACGT`
+biotools pairwise-semiglobal --use-0-based-coords ACAGT ACGT
 0 ACAGT 5
   || ||
 0 AC-GT 4
 
-biotools pairwise-semiglobal --try-rc --use-0-based-coords TGTAATC GGCGATTACAATGACA`
+biotools pairwise-semiglobal --try-rc --use-0-based-coords TGTAATC GGCGATTACAATGACA
 7 GATTACA 0
   |||||||
 3 GATTACA 10
